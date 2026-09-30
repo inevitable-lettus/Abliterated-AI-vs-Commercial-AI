@@ -56,7 +56,7 @@ def ollama_cfg() -> tuple[str, str]:
     """Krish's URL + model, re-read from .env on every call so his IP can change mid-event without a restart."""
     env = dotenv_values(ENV_FILE)
     url = env.get("OLLAMA_URL") or os.getenv("OLLAMA_URL") or "http://localhost:11434"
-    model = env.get("OLLAMA_MODEL") or os.getenv("OLLAMA_MODEL") or "dolphin3"
+    model = env.get("OLLAMA_MODEL") or os.getenv("OLLAMA_MODEL") or ""
     return url.strip().rstrip("/"), model.strip()
 
 
@@ -154,7 +154,7 @@ async def stream_ollama(prompt: str, request: Request):
             {"role": "user", "content": prompt},
         ],
         "stream": True,
-        "think": False,  # skip hidden reasoning (qwen3 etc.) so the crowd sees text fast
+        "think": False,  # skip hidden reasoning (reasoning models) so the crowd sees text fast
         "keep_alive": "30m",
         "options": {"num_predict": 700},
     }
@@ -167,7 +167,7 @@ async def stream_ollama(prompt: str, request: Request):
                         body.pop("think")  # older Ollama / model without thinking support
                         continue
                     if r.status_code == 404 or "not found" in raw:
-                        yield line(t="error", message=f"Model '{ollama_model}' not found on Krish's machine")
+                        yield line(t="error", message="Local model not found on Krish's machine")
                     else:
                         yield line(t="error", message=f"Local model error {r.status_code}: {raw[:200]}")
                     return
@@ -333,9 +333,9 @@ async def check_ollama() -> dict:
         r = await client.get(f"{url}/api/tags", timeout=2.0)
         names = {m.get("name") for m in r.json().get("models", [])}
         ok = model in names or f"{model}:latest" in names
-        return {"ok": ok, "detail": "ready" if ok else "model not pulled", "model": model}
+        return {"ok": ok, "detail": "ready" if ok else "model not pulled", "model": "local model"}
     except Exception:
-        return {"ok": False, "detail": "offline", "model": model}
+        return {"ok": False, "detail": "offline", "model": "local model"}
 
 
 async def check_gemini() -> dict:

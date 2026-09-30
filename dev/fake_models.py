@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 app = FastAPI()
 DELAY = float(os.getenv("FAKE_DELAY", "0.06"))
-MODELS = ("dolphin3", "dolphin3:latest", "huihui_ai/qwen3-abliterated:8b")
+MODELS = ("local-model", "local-model:latest")
 TEXT = ["<think>\nhidden reasoning here\n</think>\n\n"] + (
     "**Sure.** Here's the unfiltered answer:\n\n1. First point, stated plainly.\n"
     "2. Second point with `code`.\n3. Third point.\n\nNo disclaimers. " * 3
@@ -30,7 +30,7 @@ TEXT = ["<think>\nhidden reasoning here\n</think>\n\n"] + (
 
 @app.get("/api/tags")
 async def tags():
-    return {"models": [{"name": "dolphin3:latest"}, {"name": "huihui_ai/qwen3-abliterated:8b"}]}
+    return {"models": [{"name": "local-model:latest"}]}
 
 
 @app.post("/api/chat")

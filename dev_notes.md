@@ -110,8 +110,8 @@ Each entry gives the decision, the reason, and where it lives. "(asked)" means G
 | O1 | Uses `POST /api/chat` with `[system, user]` messages and `stream: true`. | Ollama's native streaming chat API, which applies the model's own chat template. | `stream_ollama()` |
 | O2 | `options.num_predict: 700`. | Caps runaway answers. Around 200 words is requested anyway. | same |
 | O3 | `keep_alive: "30m"` on each request. Krish also sets `OLLAMA_KEEP_ALIVE=-1`. | Keeps the model in memory so answers don't pause to reload. | same, README |
-| O4 | **`think: false`**, and on a 400 error mentioning "think", **retry once without it**. | Qwen3 is a reasoning model, and hidden thinking would make the crowd wait. Older Ollama versions or non-thinking models may reject the flag, so the retry keeps it working. | same |
-| O5 | **`ThinkFilter`** strips `<think>…</think>` from the stream, even when a tag is split across chunks, and trims leading whitespace. | A fallback in case the model still emits think tags (Qwen3 can emit an empty `<think></think>` pair even with thinking off). It holds back only a possible partial tag at the end of the buffer. | `ThinkFilter` |
+| O4 | **`think: false`**, and on a 400 error mentioning "think", **retry once without it**. | The local model is a reasoning model, and hidden thinking would make the crowd wait. Older Ollama versions or non-thinking models may reject the flag, so the retry keeps it working. | same |
+| O5 | **`ThinkFilter`** strips `<think>…</think>` from the stream, even when a tag is split across chunks, and trims leading whitespace. | A fallback in case the model still emits think tags (it can emit an empty `<think></think>` pair even with thinking off). It holds back only a possible partial tag at the end of the buffer. | `ThinkFilter` |
 | O6 | **`OLLAMA_URL` and `OLLAMA_MODEL` are re-read from `.env` on every request** (`ollama_cfg()`). The `.env` value wins over the process environment. | Krish's hotspot IP is only known at the event and can change. `connect-krish.sh` edits `.env`, and the running app follows within one health poll, with no restart. | `ollama_cfg()` |
 | O7 | Friendly errors: ConnectError or ConnectTimeout → "LOCAL MODEL OFFLINE — can't reach Krish's laptop". 404 or "not found" → "Model '…' not found on Krish's machine". Read timeout → "LOCAL MODEL TIMED OUT". RemoteProtocolError or ReadError → "CONNECTION TO KRISH'S LAPTOP DROPPED". Anything else → "Local model failed: <ExceptionName>". | Readable from across the room. An unreachable host usually shows up as ConnectTimeout, not ConnectError, so both map to OFFLINE. | `stream_ollama()` |
 | O8 | Browser abort → `request.is_disconnected()` is checked per chunk, and the `async with` block closes the upstream connection. | Ollama stops generating when the kill switch fires, which frees Krish's GPU. Verified: the fake logged "client disconnected". | `stream_ollama()` |
@@ -170,7 +170,7 @@ Each entry gives the decision, the reason, and where it lives. "(asked)" means G
 | F13 | `AiMessage` is `memo`-ised. | Only the streaming message re-renders. | `Panel.tsx` |
 | F14 | **Autoscroll** only if the user was within **80 px** of the bottom, using `useLayoutEffect`. | The presenter can scroll up to point at something without being yanked back down. | `Panel.tsx` |
 | F15 | Typing dots show until the first token, then a blinking cursor while streaming. The CSS `p:has(+ .cursor) { display: inline }` keeps the cursor on the last paragraph's line. | A clear "thinking" versus "typing" signal. | `Panel.tsx`, CSS |
-| F16 | Model tags show only the name after the last `/`, e.g. `qwen3-abliterated:8b`. | `huihui_ai/…` was too long and overlapped the VS badge. | `Panel.tsx` |
+| F16 | The left panel's tag is the generic "local model"; the real model name is never sent to the UI. Gemini's tag shows only the name after the last `/`. | Garv's choice (the local model's name isn't shown to the crowd). | `Panel.tsx`, `check_ollama()` |
 | F17 | A blocked answer with no text gets `.bare`: no white card around the blocked card. | Avoids a card inside a card. | `Panel.tsx`, CSS |
 | F18 | Empty states: left "› awaiting input", right "Ask me anything." | Sets the tone of each side before the first question. | `Panel.tsx` |
 | F19 | `StrictMode` is on. | Catches effect bugs in development. Harmless in production. | `main.tsx` |
@@ -215,7 +215,7 @@ Each entry gives the decision, the reason, and where it lives. "(asked)" means G
 - **Model availability for this key:** 3.8, 3.7, 3.6, 3.5 and 3.5-lite Flash, among others. `gemini-2.5-flash` returned 404 ("no longer available to new users").
 - **Free tier limit: 20 requests per day per model** (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`). Testing used up 3.8's allowance for the day. **Billing must be enabled before the event.**
 - **`gemini-3.8-flash` was frequently overloaded (503)** on 2026-09-29, and 3.7 as well. 3.5-flash and `gemini-flash-latest` sometimes hung for 30 s or more.
-- **Qwen3 thinking:** handled with `think:false` plus ThinkFilter. This has not yet been verified against Krish's real model.
+- **Local model thinking:** handled with `think:false` plus ThinkFilter. This has not yet been verified against Krish's real model.
 
 ---
 
@@ -252,7 +252,7 @@ Checks that were run and passed:
 
 - [ ] **Enable Gemini billing** before the event (see section 4).
 - [ ] **Rotate the Gemini key** after the event. It was pasted into a chat session.
-- [ ] **End-to-end test with Krish's real Ollama** on the hotspot. The ThinkFilter and `think:false` haven't been checked against real Qwen3 output yet.
+- [ ] **End-to-end test with Krish's real Ollama** on the hotspot. The ThinkFilter and `think:false` haven't been checked against the real model's output yet.
 - Every Gemini request first tries 3.8. While 3.8 is returning 503, that adds about 0.4–2 s. If it's still overloaded on the day, consider making `gemini-3.6-flash` the main model.
 - If 3.6 is silent, the fallback waits up to 10 s before moving on.
 - Esc-resume brings back cut content. Use CLEAR if it must never reappear (see P6).
@@ -266,7 +266,7 @@ Checks that were run and passed:
 ## 7. Timeline
 1. **Plan** (plan mode). Garv answered the requirements questions (P1–P13).
 2. **v1 build:** backend, frontend, fake servers in a scratchpad, tests at 1024×768.
-3. **Real credentials:** Krish's endpoint (unreachable), the Qwen3 model, the Gemini key, and 3.8 Flash. Added think handling, the Gemini fallback chain, thinking levels, and friendlier drop errors. Fixed the column width and badge overlap.
+3. **Real credentials:** Krish's endpoint (unreachable), the local model, the Gemini key, and 3.8 Flash. Added think handling, the Gemini fallback chain, thinking levels, and friendlier drop errors. Fixed the column width and badge overlap.
 4. **Krish on Windows:** `.env` hot-reload of the Ollama settings, `connect-krish.sh`, and a Windows-first README.
 5. **Premium restyle (v2).**
 6. **Question log** (`transcript.py`), simple README controls, this file, `dev/` fakes, and the first commit.

@@ -2,7 +2,7 @@
 
 A live demo. One question goes to two AI models at once, and both answers stream side by side on a projector.
 
-- **Left, UNCENSORED:** an uncensored model (`huihui_ai/qwen3-abliterated:8b`) running in Ollama on Krish's laptop.
+- **Left, UNCENSORED:** an uncensored local model running in Ollama on Krish's laptop.
 - **Right, COMMERCIAL:** Google Gemini Flash, with Google's normal safety filters.
 
 For how it works and why it's built this way, see [dev_notes.md](dev_notes.md).
@@ -72,7 +72,7 @@ cd backend && uv sync && cd ..
 **Enable billing on the key's Google Cloud project before the event.** The free tier allows only 20 requests per model per day, which a demo uses up fast. Paid usage for a few hours of Flash costs very little.
 
 ### Krish's laptop (Windows, Ollama host)
-The model is `huihui_ai/qwen3-abliterated:8b`, which is already set as `OLLAMA_MODEL` in `.env`.
+The model tag is already set as `OLLAMA_MODEL` in `.env`.
 
 **Before the event (once):**
 1. Make Ollama accept network connections and keep the model loaded. In a normal terminal, run:
@@ -90,14 +90,14 @@ The model is `huihui_ai/qwen3-abliterated:8b`, which is already set as `OLLAMA_M
    ```powershell
    Invoke-RestMethod http://localhost:11434/api/tags | Select-Object -ExpandProperty models | Select-Object name
    ```
-   The output must list `huihui_ai/qwen3-abliterated:8b`.
+   The output must list the model tag from `OLLAMA_MODEL`.
 4. Stop the laptop sleeping: Settings → System → Power → Screen and sleep → **Never** (plugged in).
 
 **At the event:**
 1. Join the **same phone hotspot** as Garv. Guest or venue Wi-Fi blocks laptop-to-laptop traffic.
 2. Preload the model so the first answer is fast:
    ```powershell
-   Invoke-RestMethod http://localhost:11434/api/generate -Method Post -Body '{"model":"huihui_ai/qwen3-abliterated:8b","keep_alive":-1}'
+   Invoke-RestMethod http://localhost:11434/api/generate -Method Post -Body '{"model":"<OLLAMA_MODEL tag>","keep_alive":-1}'
    ```
 3. Get the laptop's IP and send it to Garv. On an iPhone hotspot it looks like `172.20.10.x`.
    ```powershell
